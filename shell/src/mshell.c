@@ -1,8 +1,12 @@
 #include <stdio.h>
+#include <unistd.h>
+#include <sys/wait.h>
 
 #include "config.h"
 #include "siparse.h"
 #include "utils.h"
+#include "string.h"
+
 
 int
 main(int argc, char *argv[])
@@ -10,29 +14,61 @@ main(int argc, char *argv[])
 	pipelineseq * ln;
 	command *com;
 
-	char buf[2048];
+    //we store information on child process below
+    pid_t child_pid;
+    int status;
+
+    //storing value of read()
+    ssize_t read_value;
+
+	char buf[MAX_LINE_LENGTH];
+
+    //?????????????????????
+    memset(buf, 0, MAX_LINE_LENGTH);
+
+	while (1) {
+        fprintf(stdout, "%s", PROMPT_STR);
+        fflush(stdout);
+
+        read_value = read(0, buf, MAX_LINE_LENGTH);
+
+        //part responsible for CNTR-D end ENTER
+        if (read_value == 0) {
+            return 0;
+        }
+        if (read_value == 1) {
+            continue;
+        }
 
 
-	while (fgets(buf, 2048, stdin)){	
+        if (buf[read_value - 1] != '\n'){
+            while (1) {
+                read_value = read(0, buf, MAX_LINE_LENGTH);
+                if(buf[read_value-1] == '\n'){
+                    break;
+                }
+            }
+            fprintf(stderr,"%s\n", SYNTAX_ERROR_STR);
+            continue;
+        }
+
 		ln = parseline(buf);
-		printparsedline(ln);
+        if(ln == NULL){
+            fprintf(stderr,"%s\n", SYNTAX_ERROR_STR);
+        }
+		//printparsedline(ln);
+
+        child_pid = fork();
+        if(child_pid == 0){
+            break;
+        }
+        else{
+            waitpid(child_pid, &status, 0);
+        }
+
 	}
+    execvP(pickfirstcommand(ln), )
 
-	return 0;
 
-	ln = parseline("ls -las | grep k | wc ; echo abc > f1 ;  cat < f2 ; echo abc >> f3\n");
-	printparsedline(ln);
-	printf("\n");
-	com = pickfirstcommand(ln);
-	printcommand(com,1);
-
-	ln = parseline("sleep 3 &");
-	printparsedline(ln);
-	printf("\n");
-	
-	ln = parseline("echo  & abc >> f3\n");
-	printparsedline(ln);
-	printf("\n");
-	com = pickfirstcommand(ln);
-	printcommand(com,1);
+    return 0;
 }
