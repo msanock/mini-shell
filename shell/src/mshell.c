@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <stdlib.h>
+#include <errno.h>
 
 #include "config.h"
 #include "siparse.h"
@@ -8,11 +10,37 @@
 #include "string.h"
 
 
+int run_child(pipelineseq * ln) {
+    command * com = pickfirstcommand(ln);
+    argseq * args = com->args;
+    //redirseq * redirs = com->redirs;
+
+    //had better change for counting args and changing for dynamic array
+    //char ** args_array = (char **)malloc(MAX_ARGS * sizeof(char *));
+    char * args_array[MAX_ARGS];
+
+    argseq * current = args;
+    int i = 0;
+    do{
+        args_array[i] = current->arg;
+        i++;
+        current = current->next;
+    } while (args != current);
+    args_array[i] = NULL;
+
+    if (execvp(args_array[0],args_array) == -1) {
+        return errno;
+    }
+
+    return 0;
+}
+
+
 int
-main(int argc, char *argv[])
+main (int argc, char *argv[])
 {
 	pipelineseq * ln;
-	command *com;
+	//command *com;
 
     //we store information on child process below
     pid_t child_pid;
@@ -23,12 +51,14 @@ main(int argc, char *argv[])
 
 	char buf[MAX_LINE_LENGTH];
 
-    //?????????????????????
-    memset(buf, 0, MAX_LINE_LENGTH);
+
 
 	while (1) {
         fprintf(stdout, "%s", PROMPT_STR);
         fflush(stdout);
+
+        //??? somehow without this parser have
+        memset(buf, 0, MAX_LINE_LENGTH);
 
         read_value = read(0, buf, MAX_LINE_LENGTH);
 
@@ -41,10 +71,10 @@ main(int argc, char *argv[])
         }
 
 
-        if (buf[read_value - 1] != '\n'){
+        if (buf[read_value - 1] != '\n') {
             while (1) {
                 read_value = read(0, buf, MAX_LINE_LENGTH);
-                if(buf[read_value-1] == '\n'){
+                if(buf[read_value-1] == '\n') {
                     break;
                 }
             }
@@ -53,13 +83,13 @@ main(int argc, char *argv[])
         }
 
 		ln = parseline(buf);
-        if(ln == NULL){
+        if (ln == NULL) {
             fprintf(stderr,"%s\n", SYNTAX_ERROR_STR);
         }
 		//printparsedline(ln);
 
         child_pid = fork();
-        if(child_pid == 0){
+        if (child_pid == 0) {
             break;
         }
         else{
@@ -67,8 +97,7 @@ main(int argc, char *argv[])
         }
 
 	}
-    execvP(pickfirstcommand(ln), )
-
+    run_child(ln);
 
     return 0;
 }
