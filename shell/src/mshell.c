@@ -28,8 +28,19 @@ int run_child(pipelineseq * ln) {
     } while (args != current);
     args_array[i] = NULL;
 
+
     if (execvp(args_array[0],args_array) == -1) {
-        return errno;
+        switch (errno) {
+            case EFAULT:
+                fprintf(stderr, "%s%s", args_array[0], BAD_ADDRESS_ERROR_STR);
+                break;
+            case EACCES:
+                fprintf(stderr, "%s%s", args_array[0], PERMISSION_ERROR_STR);
+                break;
+            default:
+                fprintf(stderr, "%s%s", args_array[0], EXEC_ERROR_STR);
+        }
+        return EXEC_FAILURE;
     }
 
     return 0;
@@ -57,7 +68,7 @@ main (int argc, char *argv[])
         fprintf(stdout, "%s", PROMPT_STR);
         fflush(stdout);
 
-        //??? somehow without this parser have
+        //without this buffer gets overloaded for some reason
         memset(buf, 0, MAX_LINE_LENGTH);
 
         read_value = read(0, buf, MAX_LINE_LENGTH);
@@ -97,7 +108,7 @@ main (int argc, char *argv[])
         }
 
 	}
-    run_child(ln);
 
-    return 0;
+    //
+    return run_child(ln);
 }

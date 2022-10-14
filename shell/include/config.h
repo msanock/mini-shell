@@ -6,6 +6,9 @@
 
 
 #define SYNTAX_ERROR_STR "Syntax error."
+#define BAD_ADDRESS_ERROR_STR ": no such file or directory\n"
+#define PERMISSION_ERROR_STR ": permission denied\n"
+#define EXEC_ERROR_STR ": exec error\n"
 
 #define EXEC_FAILURE 127
 
