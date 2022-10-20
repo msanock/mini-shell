@@ -2,6 +2,7 @@
 #define _CONFIG_H_
 
 #define MAX_LINE_LENGTH 2048
+#define BUFFER_SIZE 4096
 #define MAX_ARGS (MAX_LINE_LENGTH/2)
 
 
