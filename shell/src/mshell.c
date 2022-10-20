@@ -38,7 +38,7 @@ void run_child(pipelineseq * ln) {
 
     if (execvp(args_array[0],args_array) == -1) {
         switch (errno) {
-            case EFAULT:
+            case ENOENT:
                 fprintf(stderr, "%s%s", args_array[0], BAD_ADDRESS_ERROR_STR);
                 break;
             case EACCES:
@@ -86,12 +86,29 @@ int main (int argc, char *argv[]) {
         } else {
             write_to_buffer_ptr = buf + length;
         }
-        read_value = read(0, write_to_buffer_ptr, MAX_LINE_LENGTH);
+        read_value = read(0, write_to_buffer_ptr, MAX_BUFFER_READ);
         if (read_value == -1) {
             perror("read: ");
             exit(EXEC_FAILURE);
         }
+
         if (read_value == 0) {
+            if (length > 0){
+                buf[length] = 0;
+                ln = parseline(buf);
+                if (ln == NULL) {
+                    fprintf(stderr,"%s\n", SYNTAX_ERROR_STR);
+                }
+
+                child_pid = fork();
+                if (child_pid == 0) {
+                    run_child(ln);
+                }
+                else{
+                    waitpid(child_pid, &status, 0);
+                    return 0;
+                }
+            }
             return 0;
         }
 
@@ -99,23 +116,23 @@ int main (int argc, char *argv[]) {
         buf[length] = 0;
 
         end_of_command = strchr(buf, '\n');
-        
+
         if (end_of_command == NULL && length > MAX_LINE_LENGTH) {
             do {
-                read_value = read(0, buf, MAX_LINE_LENGTH);
+                read_value = read(0, buf, MAX_BUFFER_READ);
                 buf[read_value] = 0;
                 end_of_command = strchr(buf, '\n');
             } while(end_of_command == NULL);
             fprintf(stderr, "%s\n", SYNTAX_ERROR_STR);
             length = read_value - (end_of_command+1-buf);
             memmove(buf, end_of_command+1, length);
-            //buf[length] = 0;
+            buf[length] = 0;
             end_of_command = strchr(buf, '\n');
         } else if(end_of_command+1-buf > MAX_LINE_LENGTH) {
             fprintf(stderr, "%s\n", SYNTAX_ERROR_STR);
             length -= (end_of_command+1-buf);
             memmove(buf, end_of_command+1, length);
-            //buf[length] = 0;
+            buf[length] = 0;
             end_of_command = strchr(buf, '\n');
         }
 
@@ -134,8 +151,8 @@ int main (int argc, char *argv[]) {
             else{
                 waitpid(child_pid, &status, 0);
             }
+            length -= (end_of_command+1) - begin_new_command;
             begin_new_command = end_of_command+1;
-            length -= begin_new_command - buf;
             end_of_command = strchr(begin_new_command, '\n');
         }
         if(begin_new_command != buf) memmove(buf, begin_new_command, length);
