@@ -19,12 +19,14 @@ struct Buffer {
     char * write_to_buffer_ptr;
 }buffer;
 
-void run_child(pipelineseq * ln) {
+void run_child_process(pipelineseq * ln) {
     command * com = pickfirstcommand(ln);
     argseq * args = com->args;
-    //redirseq * redirs = com->redirs;
 
-    argseq * current = args;
+    argseq * current;
+
+    // counting number of args, additional memory for NULL
+    current = args;
     int i = 1;
     do{
         i++;
@@ -33,27 +35,33 @@ void run_child(pipelineseq * ln) {
 
     char ** args_array = (char **)malloc(i * sizeof(char *));
 
+    // assigning values
     current = args;
     i = 0;
     do{
-        args_array[i] = current->arg;
-        i++;
+        args_array[i++] = current->arg;
         current = current->next;
     } while (args != current);
+
     args_array[i] = NULL;
 
-
+    // handling errors that may occur
     if (execvp(args_array[0],args_array) == -1) {
         switch (errno) {
+
             case ENOENT:
                 fprintf(stderr, "%s%s", args_array[0], BAD_ADDRESS_ERROR_STR);
                 break;
+
             case EACCES:
                 fprintf(stderr, "%s%s", args_array[0], PERMISSION_ERROR_STR);
                 break;
+
             default:
                 fprintf(stderr, "%s%s", args_array[0], EXEC_ERROR_STR);
+
         }
+
         exit(EXEC_FAILURE);
     }
 }
@@ -62,31 +70,34 @@ int main (int argc, char *argv[]) {
 
     pipelineseq *ln;
 
-    //process info
+    // process info
     pid_t child_pid;
     int status;
 
-    //number of bytes read by read function
+    // number of bytes read by read function
     ssize_t read_value;
 
-    //input info
+    // input info
     struct stat stdin_info;
     int is_tty;
+
 
     if (fstat(fileno(stdin), &stdin_info) == -1) {
         perror("fstat: ");
         exit(EXEC_FAILURE);
     }
-
     is_tty = S_ISCHR(stdin_info.st_mode);
 
     buffer.length = 0;
     while (1) {
+
         if (is_tty) {
             fprintf(stdout, "%s", PROMPT_STR);
             fflush(stdout);
             buffer.write_to_buffer_ptr = buffer.buf;
-        } else {
+
+        }
+        else {
             buffer.write_to_buffer_ptr = buffer.buf + buffer.length;
         }
 
@@ -96,22 +107,25 @@ int main (int argc, char *argv[]) {
             exit(EXEC_FAILURE);
         }
 
-        //checking the end of file
+        // checking the end of file
         if (read_value == 0) {
+
+            // at the end of file can be a correct command without '\n'
             if (buffer.length > 0){
                 buffer.buf[buffer.length] = 0;
+
                 ln = parseline(buffer.buf);
                 if (ln == NULL) {
                     fprintf(stderr,"%s\n", SYNTAX_ERROR_STR);
                 }
+
                 child_pid = fork();
-                if (child_pid == 0) {
-                    run_child(ln);
-                }
-                else{
+
+                if (child_pid == 0)
+                    run_child_process(ln);
+
+                else
                     waitpid(child_pid, &status, 0);
-                    return 0;
-                }
             }
             return 0;
         }
@@ -121,45 +135,71 @@ int main (int argc, char *argv[]) {
 
         buffer.end_of_command = strchr(buffer.buf, '\n');
 
+        // current command is too long and there isn't '\n' in buffer
+        // first, program finds end of current command, than it moves to next command
+        // to the beginning of buffer.
+        // special case: the end of command may be EOF
         if (buffer.end_of_command == NULL && buffer.length > MAX_LINE_LENGTH) {
+
             do {
                 read_value = read(0, buffer.buf, MAX_BUFFER_READ);
                 buffer.buf[read_value] = 0;
+
                 buffer.end_of_command = strchr(buffer.buf, '\n');
-            } while(buffer.end_of_command == NULL);
+            } while(buffer.end_of_command == NULL && !feof(stdin));
+
             fprintf(stderr, "%s\n", SYNTAX_ERROR_STR);
-            buffer.length = read_value - (buffer.end_of_command+1-buffer.buf);
+
+            if (feof(stdin))
+                return 0;
+
+            buffer.length = read_value - (buffer.end_of_command+1 - buffer.buf);
             memmove(buffer.buf, buffer.end_of_command+1, buffer.length);
             buffer.buf[buffer.length] = 0;
+
             buffer.end_of_command = strchr(buffer.buf, '\n');
+
         }
+        // current command's '\n' is further than max line length
+        // program moves next command to the beginning of buffer
         else if(buffer.end_of_command+1-buffer.buf > MAX_LINE_LENGTH) {
+
             fprintf(stderr, "%s\n", SYNTAX_ERROR_STR);
-            buffer.length -= (buffer.end_of_command+1-buffer.buf);
+
+            buffer.length -= (buffer.end_of_command+1 - buffer.buf);
             memmove(buffer.buf, buffer.end_of_command+1, buffer.length);
             buffer.buf[buffer.length] = 0;
+
             buffer.end_of_command = strchr(buffer.buf, '\n');
         }
 
+        //after checks new command starts at the beginning of the file
         buffer.begin_new_command = buffer.buf;
+
+        //as long as there is command which ends with '\n' execute it
         while(buffer.end_of_command != NULL) {
             *buffer.end_of_command = 0;
+
             ln = parseline(buffer.begin_new_command);
-            if (ln == NULL) {
+            if (ln == NULL)
                 fprintf(stderr,"%s\n", SYNTAX_ERROR_STR);
-            }
 
             child_pid = fork();
-            if (child_pid == 0) {
-                run_child(ln);
-            }
-            else{
+
+            if (child_pid == 0)
+                run_child_process(ln);
+
+            else
                 waitpid(child_pid, &status, 0);
-            }
+
+            //moving to the next command
             buffer.length -= (buffer.end_of_command+1) - buffer.begin_new_command;
             buffer.begin_new_command = buffer.end_of_command+1;
+
             buffer.end_of_command = strchr(buffer.begin_new_command, '\n');
         }
+
+        //move what's left to the beginning of buffer
         if(buffer.begin_new_command != buffer.buf)
             memmove(buffer.buf, buffer.begin_new_command, buffer.length);
     }
