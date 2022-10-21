@@ -11,6 +11,13 @@
 #include "utils.h"
 #include "string.h"
 
+struct Buffer {
+    char buf[BUFFER_SIZE];
+    int length;
+    char * end_of_command;
+    char * begin_new_command;
+    char * write_to_buffer_ptr;
+}buffer;
 
 void run_child(pipelineseq * ln) {
     command * com = pickfirstcommand(ln);
@@ -55,19 +62,14 @@ int main (int argc, char *argv[]) {
 
     pipelineseq *ln;
 
-    //we store information on child process below
+    //process info
     pid_t child_pid;
     int status;
 
-    //storing value of read()
+    //number of bytes read by read function
     ssize_t read_value;
-    int length = 0;
-    char * end_of_command;
-    char * begin_new_command;
 
-    char buf[BUFFER_SIZE];
-    char * write_to_buffer_ptr;
-
+    //input info
     struct stat stdin_info;
     int is_tty;
 
@@ -78,28 +80,30 @@ int main (int argc, char *argv[]) {
 
     is_tty = S_ISCHR(stdin_info.st_mode);
 
+    buffer.length = 0;
     while (1) {
         if (is_tty) {
             fprintf(stdout, "%s", PROMPT_STR);
             fflush(stdout);
-            write_to_buffer_ptr = buf;
+            buffer.write_to_buffer_ptr = buffer.buf;
         } else {
-            write_to_buffer_ptr = buf + length;
+            buffer.write_to_buffer_ptr = buffer.buf + buffer.length;
         }
-        read_value = read(0, write_to_buffer_ptr, MAX_BUFFER_READ);
+
+        read_value = read(0, buffer.write_to_buffer_ptr, MAX_BUFFER_READ);
         if (read_value == -1) {
             perror("read: ");
             exit(EXEC_FAILURE);
         }
 
+        //checking the end of file
         if (read_value == 0) {
-            if (length > 0){
-                buf[length] = 0;
-                ln = parseline(buf);
+            if (buffer.length > 0){
+                buffer.buf[buffer.length] = 0;
+                ln = parseline(buffer.buf);
                 if (ln == NULL) {
                     fprintf(stderr,"%s\n", SYNTAX_ERROR_STR);
                 }
-
                 child_pid = fork();
                 if (child_pid == 0) {
                     run_child(ln);
@@ -112,34 +116,35 @@ int main (int argc, char *argv[]) {
             return 0;
         }
 
-        length += read_value;
-        buf[length] = 0;
+        buffer.length += read_value;
+        buffer.buf[buffer.length] = 0;
 
-        end_of_command = strchr(buf, '\n');
+        buffer.end_of_command = strchr(buffer.buf, '\n');
 
-        if (end_of_command == NULL && length > MAX_LINE_LENGTH) {
+        if (buffer.end_of_command == NULL && buffer.length > MAX_LINE_LENGTH) {
             do {
-                read_value = read(0, buf, MAX_BUFFER_READ);
-                buf[read_value] = 0;
-                end_of_command = strchr(buf, '\n');
-            } while(end_of_command == NULL);
+                read_value = read(0, buffer.buf, MAX_BUFFER_READ);
+                buffer.buf[read_value] = 0;
+                buffer.end_of_command = strchr(buffer.buf, '\n');
+            } while(buffer.end_of_command == NULL);
             fprintf(stderr, "%s\n", SYNTAX_ERROR_STR);
-            length = read_value - (end_of_command+1-buf);
-            memmove(buf, end_of_command+1, length);
-            buf[length] = 0;
-            end_of_command = strchr(buf, '\n');
-        } else if(end_of_command+1-buf > MAX_LINE_LENGTH) {
+            buffer.length = read_value - (buffer.end_of_command+1-buffer.buf);
+            memmove(buffer.buf, buffer.end_of_command+1, buffer.length);
+            buffer.buf[buffer.length] = 0;
+            buffer.end_of_command = strchr(buffer.buf, '\n');
+        }
+        else if(buffer.end_of_command+1-buffer.buf > MAX_LINE_LENGTH) {
             fprintf(stderr, "%s\n", SYNTAX_ERROR_STR);
-            length -= (end_of_command+1-buf);
-            memmove(buf, end_of_command+1, length);
-            buf[length] = 0;
-            end_of_command = strchr(buf, '\n');
+            buffer.length -= (buffer.end_of_command+1-buffer.buf);
+            memmove(buffer.buf, buffer.end_of_command+1, buffer.length);
+            buffer.buf[buffer.length] = 0;
+            buffer.end_of_command = strchr(buffer.buf, '\n');
         }
 
-        begin_new_command = buf;
-        while(end_of_command != NULL) {
-            *end_of_command = 0;
-            ln = parseline(begin_new_command);
+        buffer.begin_new_command = buffer.buf;
+        while(buffer.end_of_command != NULL) {
+            *buffer.end_of_command = 0;
+            ln = parseline(buffer.begin_new_command);
             if (ln == NULL) {
                 fprintf(stderr,"%s\n", SYNTAX_ERROR_STR);
             }
@@ -151,10 +156,11 @@ int main (int argc, char *argv[]) {
             else{
                 waitpid(child_pid, &status, 0);
             }
-            length -= (end_of_command+1) - begin_new_command;
-            begin_new_command = end_of_command+1;
-            end_of_command = strchr(begin_new_command, '\n');
+            buffer.length -= (buffer.end_of_command+1) - buffer.begin_new_command;
+            buffer.begin_new_command = buffer.end_of_command+1;
+            buffer.end_of_command = strchr(buffer.begin_new_command, '\n');
         }
-        if(begin_new_command != buf) memmove(buf, begin_new_command, length);
+        if(buffer.begin_new_command != buffer.buf)
+            memmove(buffer.buf, buffer.begin_new_command, buffer.length);
     }
 }
