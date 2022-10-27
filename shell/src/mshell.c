@@ -109,6 +109,9 @@ void read_prep () {
 
 void handle_line (){
 
+    if(*buffer.begin_new_command == 0 || *buffer.begin_new_command == '#')
+        return;
+
     ln = parseline(buffer.begin_new_command);
     if (ln == NULL) {
         fprintf(stderr,"%s\n", SYNTAX_ERROR_STR);
@@ -118,8 +121,6 @@ void handle_line (){
     argseq * args = com->args;
 
     char ** args_array = get_command_args(args);
-
-
 
     fptr builtin_fun = is_builtin(args_array[0]);
 
@@ -183,8 +184,8 @@ void length_check () {
 
     }
 
-    // current command's '\n' is further than max line length
-    // program moves next command to the beginning of buffer
+        // current command's '\n' is further than max line length
+        // program moves next command to the beginning of buffer
     else if(buffer.end_of_command+1-buffer.buf > MAX_LINE_LENGTH) {
 
         fprintf(stderr, "%s\n", SYNTAX_ERROR_STR);
@@ -204,7 +205,7 @@ void handle_multi_line () {
     while(buffer.end_of_command != NULL) {
         *buffer.end_of_command = 0;
 
-        //if(*buffer.begin_new_command != '#')
+
         handle_line();
 
         //moving to the next command

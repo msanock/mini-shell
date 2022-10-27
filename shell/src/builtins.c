@@ -44,7 +44,6 @@ int count_args(char * argv[]) {
     while (argv[i])
         i++;
 
-    printf("%d", i);
 
     return i;
 }
