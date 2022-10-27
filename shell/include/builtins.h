@@ -8,6 +8,9 @@ typedef struct {
 	int (*fun)(char**); 
 } builtin_pair;
 
+typedef int (*fptr)(char **);
+fptr is_builtin(char *);
+
 extern builtin_pair builtins_table[];
 
 #endif /* !_BUILTINS_H_ */
