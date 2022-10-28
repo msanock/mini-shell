@@ -126,7 +126,7 @@ void handle_line (){
 
     if (builtin_fun != NULL) {
         if (builtin_fun(args_array))
-            printf(BUILTIN_ERROR_STR, args_array[0]);
+            fprintf(stderr, BUILTIN_ERROR_STR, args_array[0]);
     } else{
         child_pid = fork();
 
