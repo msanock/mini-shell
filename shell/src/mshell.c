@@ -172,27 +172,23 @@ void length_check () {
             buffer.buf[read_value] = 0;
 
             buffer.end_of_command = strchr(buffer.buf, '\n');
-        } while(buffer.end_of_command == NULL && !feof(stdin));
+        } while (buffer.end_of_command == NULL && !feof(stdin));
 
         fprintf(stderr, "%s\n", SYNTAX_ERROR_STR);
 
         if (feof(stdin))
             exit(0);
 
-        buffer.length = read_value - (buffer.end_of_command+1 - buffer.buf);
-        move_buffer();
-
+        buffer.length = read_value;
     }
-
-        // current command's '\n' is further than max line length
-        // program moves next command to the beginning of buffer
-    else if(buffer.end_of_command+1-buffer.buf > MAX_LINE_LENGTH) {
-
+    // current command's '\n' is further than max line length
+    // program moves next command to the beginning of buffer
+    else if(buffer.end_of_command+1-buffer.buf > MAX_LINE_LENGTH)
         fprintf(stderr, "%s\n", SYNTAX_ERROR_STR);
 
-        buffer.length -= (buffer.end_of_command+1 - buffer.buf);
-        move_buffer();
-    }
+
+    buffer.length -= (buffer.end_of_command+1 - buffer.buf);
+    move_buffer();
 
     //after checks new command starts at the beginning of the file
     buffer.begin_new_command = buffer.buf;
@@ -204,7 +200,6 @@ void handle_multi_line () {
     //as long as there is command which ends with '\n' execute it
     while(buffer.end_of_command != NULL) {
         *buffer.end_of_command = 0;
-
 
         handle_line();
 
