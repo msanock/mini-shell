@@ -37,7 +37,7 @@ pipelineseq *ln;
 
 char ** get_command_args (argseq *);
 
-int handle_redirs (redirseq *);
+void handle_redirs (redirseq *);
 
 void run_child_process (char **);
 
@@ -138,13 +138,11 @@ void handle_line (){
         return;
 
     ln = parseline(buffer.begin_new_command);
-    if (ln == NULL) {
+    if (ln == NULL)
         fprintf(stderr, "%s\n", SYNTAX_ERROR_STR);
-    }
 
     pipelineseq * current = ln;
 
-    //printparsedline(ln);
     do {
         handle_pipeline(current->pipeline);
 
@@ -164,12 +162,7 @@ void handle_pipeline (pipeline * ps) {
     commandseq * current = ps->commands;
 
     do {
-
-//        printf("%d",number_of_child_processes);
-//        fflush(stdout);
-
-        if(handle_command_in_pipeline(current->com, file_descriptors, (current->next != ps->commands)))
-            return;
+        handle_command_in_pipeline(current->com, file_descriptors, (current->next != ps->commands));
 
         number_of_child_processes++;
 
@@ -179,12 +172,8 @@ void handle_pipeline (pipeline * ps) {
     close(file_descriptors[0]);
     close(file_descriptors[1]);
 
-
-    while(number_of_child_processes--){
-//        printf("%d", number_of_child_processes);
-//        fflush(stdout);
+    while(number_of_child_processes--)
         wait(&status);
-    }
 
 }
 
@@ -203,7 +192,6 @@ int handle_command_in_pipeline (command* com, int * file_descriptors, int has_ne
 
     char ** args_array = get_command_args(args);
 
-    // quite hard to
     fptr builtin_fun = is_builtin(args_array[0]);
 
     if (builtin_fun != NULL) {
@@ -297,7 +285,6 @@ void length_check () {
         move_buffer();
     }
 
-
     //after checks new command starts at the beginning of the file
     buffer.begin_new_command = buffer.buf;
 
@@ -339,9 +326,9 @@ char ** get_command_args(argseq * args) {
 
 }
 
-int handle_redirs(redirseq * redirs) {
+void handle_redirs(redirseq * redirs) {
     if (redirs == NULL)
-        return 0;
+        return;
 
     redirseq * current = redirs;
     int new_descriptor;
@@ -349,7 +336,6 @@ int handle_redirs(redirseq * redirs) {
 
 
     do {
-        printf("%d", flags);
         if (IS_RIN(current->r->flags))
             flags = O_RDONLY;
 
@@ -369,23 +355,22 @@ int handle_redirs(redirseq * redirs) {
                     fprintf(stderr, "%s%s", current->r->filename, BAD_ADDRESS_ERROR_STR);
                     break;
 
-                case EACCES:
+                case EPERM:
                     fprintf(stderr, "%s%s", current->r->filename, PERMISSION_ERROR_STR);
                     break;
             }
 
-            return WRONG_REDIR;
+            exit(WRONG_REDIR);
         }
-
-        printf("%d", flags);
 
         if (IS_RIN(current->r->flags))
             dup2(new_descriptor, 0);
         else
             dup2(new_descriptor, 1);
 
+        close(new_descriptor);
+
         current = current->next;
     } while (redirs != current);
 
-    return 0;
 }
