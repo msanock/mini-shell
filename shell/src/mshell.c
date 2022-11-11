@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 
 #include "config.h"
 #include "siparse.h"
@@ -36,9 +37,15 @@ pipelineseq *ln;
 
 char ** get_command_args (argseq *);
 
+int handle_redirs (redirseq *);
+
 void run_child_process (char **);
 
 void handle_line ();
+
+void handle_pipeline(pipeline *);
+
+int handle_command_in_pipeline(command *, int *, int);
 
 void move_buffer ();
 
@@ -77,19 +84,19 @@ int main (int argc, char *argv[]) {
             if (buffer.length > 0)
                 handle_line();
 
-            return 0;
+            exit(0);
         }
 
         buffer.end_of_command = strchr(buffer.buf, '\n');
 
         length_check();
 
-        //after checks new command starts at the beginning of the file
+
+        // after checks new command starts at the beginning of the file
         buffer.begin_new_command = buffer.buf;//delete
 
         if (buffer.end_of_command != NULL)
             handle_multi_line();
-
     }
 }
 
@@ -102,40 +109,130 @@ void read_prep () {
     } else
         buffer.write_to_buffer_ptr = buffer.buf + buffer.length;
 
-
     buffer.begin_new_command = buffer.buf;
+}
+
+void handle_multi_line () {
+
+    //as long as there is command which ends with '\n' execute it
+    while(buffer.end_of_command != NULL) {
+        *buffer.end_of_command = 0;
+
+        handle_line();
+
+        //moving to the next command
+        buffer.length -= (buffer.end_of_command+1) - buffer.begin_new_command;
+        buffer.begin_new_command = buffer.end_of_command+1;
+
+        buffer.end_of_command = strchr(buffer.begin_new_command, '\n');
+    }
+
+    //move what's left to the beginning of buffer
+    memmove(buffer.buf, buffer.begin_new_command, buffer.length);
 
 }
 
 void handle_line (){
 
-    if(*buffer.begin_new_command == 0 || *buffer.begin_new_command == '#')
+    if (*buffer.begin_new_command == 0 || *buffer.begin_new_command == '#')
         return;
 
     ln = parseline(buffer.begin_new_command);
     if (ln == NULL) {
-        fprintf(stderr,"%s\n", SYNTAX_ERROR_STR);
+        fprintf(stderr, "%s\n", SYNTAX_ERROR_STR);
     }
 
-    command * com = pickfirstcommand(ln);
+    pipelineseq * current = ln;
+
+    //printparsedline(ln);
+    do {
+        handle_pipeline(current->pipeline);
+
+        current = current->next;
+    } while (current != ln);
+
+}
+
+void handle_pipeline (pipeline * ps) {
+    int number_of_child_processes = 0;
+    int file_descriptors[2];
+
+    commandseq * current = ps->commands;
+
+    do {
+
+        printf("%d",number_of_child_processes);
+        fflush(stdout);
+
+        if(handle_command_in_pipeline(current->com, file_descriptors, (current->next != ps->commands)))
+            return;
+
+        number_of_child_processes++;
+
+        current = current->next;
+    } while (current != ps->commands);
+
+
+    while(number_of_child_processes--){
+        printf("%d", number_of_child_processes);
+        fflush(stdout);
+        wait(&status);
+    }
+
+    //close(file_descriptors[0]);
+    //close(file_descriptors[1]);
+
+    //handle_command_in_pipeline(ps->comands->com);
+}
+
+int handle_command_in_pipeline (command* com, int * file_descriptors, int has_next) {
+
+
     argseq * args = com->args;
+    redirseq * redirs = com->redirs;
+
+    if (*com->args->arg == 0 || *com->args->arg == '#'){
+        fprintf(stderr, "%s\n", SYNTAX_ERROR_STR);
+        return -1;
+    }
 
     char ** args_array = get_command_args(args);
+
 
     fptr builtin_fun = is_builtin(args_array[0]);
 
     if (builtin_fun != NULL) {
-        if (builtin_fun(args_array))
+        handle_redirs(redirs);
+        if (builtin_fun(args_array)) {
             fprintf(stderr, BUILTIN_ERROR_STR, args_array[0]);
-    } else{
-        child_pid = fork();
-
-        if (child_pid == 0)
-            run_child_process(args_array);
-        else
-            waitpid(child_pid, &status, 0);
+            return -1;
+        }
+        return 0;
     }
 
+
+
+    child_pid = fork();
+
+
+    if (child_pid == 0) {
+        dup2(file_descriptors[1], 1);
+
+        if(has_next){
+            pipe(file_descriptors);
+            dup2(file_descriptors[0], 0);
+        }
+
+        handle_redirs(redirs);
+
+        run_child_process(args_array);
+    }
+    else{
+        //close(file_descriptors[0]);
+        //close(file_descriptors[1]);
+    }
+
+    return 0;
 }
 
 void run_child_process (char ** args_array) {
@@ -179,39 +276,21 @@ void length_check () {
         if (feof(stdin))
             exit(0);
 
-        buffer.length = read_value;
+        buffer.length = read_value - (buffer.end_of_command+1 - buffer.buf);
+        move_buffer();
     }
     // current command's '\n' is further than max line length
     // program moves next command to the beginning of buffer
-    else if(buffer.end_of_command+1-buffer.buf > MAX_LINE_LENGTH)
+    else if(buffer.end_of_command+1-buffer.buf > MAX_LINE_LENGTH) {
         fprintf(stderr, "%s\n", SYNTAX_ERROR_STR);
 
+        buffer.length -= (buffer.end_of_command+1 - buffer.buf);
+        move_buffer();
+    }
 
-    buffer.length -= (buffer.end_of_command+1 - buffer.buf);
-    move_buffer();
 
     //after checks new command starts at the beginning of the file
     buffer.begin_new_command = buffer.buf;
-
-}
-
-void handle_multi_line () {
-
-    //as long as there is command which ends with '\n' execute it
-    while(buffer.end_of_command != NULL) {
-        *buffer.end_of_command = 0;
-
-        handle_line();
-
-        //moving to the next command
-        buffer.length -= (buffer.end_of_command+1) - buffer.begin_new_command;
-        buffer.begin_new_command = buffer.end_of_command+1;
-
-        buffer.end_of_command = strchr(buffer.begin_new_command, '\n');
-    }
-
-    //move what's left to the beginning of buffer
-    memmove(buffer.buf, buffer.begin_new_command, buffer.length);
 
 }
 
@@ -249,4 +328,55 @@ char ** get_command_args(argseq * args) {
 
     return args_array;
 
+}
+
+int handle_redirs(redirseq * redirs) {
+    if (redirs == NULL)
+        return 0;
+
+    redirseq * current = redirs;
+    int new_descriptor;
+    int flags = 0;
+
+
+    do {
+        printf("%d", flags);
+        if (IS_RIN(current->r->flags))
+            flags = O_RDONLY;
+
+        else {
+            flags = O_WRONLY | O_CREAT;
+            if (IS_RAPPEND(current->r->flags))
+                flags |= O_APPEND;
+            else
+                flags |= O_TRUNC;
+        }
+        
+        new_descriptor = open(current->r->filename, flags, 0644);
+
+        if (new_descriptor == -1){
+            switch (errno) {
+                case ENOENT:
+                    fprintf(stderr, "%s%s", current->r->filename, BAD_ADDRESS_ERROR_STR);
+                    break;
+
+                case EACCES:
+                    fprintf(stderr, "%s%s", current->r->filename, PERMISSION_ERROR_STR);
+                    break;
+            }
+
+            return WRONG_REDIR;
+        }
+
+        printf("%d", flags);
+
+        if (IS_RIN(current->r->flags))
+            dup2(new_descriptor, 0);
+        else
+            dup2(new_descriptor, 1);
+
+        current = current->next;
+    } while (redirs != current);
+
+    return 0;
 }

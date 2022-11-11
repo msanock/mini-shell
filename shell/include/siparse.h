@@ -66,7 +66,7 @@ typedef struct pipelineseq {
  * Each pipeline is a sequence of commands separated by '|'.
  * Function returns a pointer to the static structure pipelineseq or NULL if meets an error.
  * All structures referenced from the result of the function are statically allocated and shall not be freed.
- * Passing a string longer than MAX_LINE_LENGHT may result in an unspecified behaviour.
+ * Passing a string longer than MAX_LINE_LENGTH may result in an unspecified behaviour.
  * Consecutive calls to the function destroy the content of previously returned structures.
  */
 pipelineseq * parseline(char *);
