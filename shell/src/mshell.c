@@ -157,12 +157,16 @@ void handle_pipeline (pipeline * ps) {
     int number_of_child_processes = 0;
     int file_descriptors[2];
 
+    file_descriptors[0] = 0;
+    file_descriptors[1] = 1;
+
+
     commandseq * current = ps->commands;
 
     do {
 
-        printf("%d",number_of_child_processes);
-        fflush(stdout);
+//        printf("%d",number_of_child_processes);
+//        fflush(stdout);
 
         if(handle_command_in_pipeline(current->com, file_descriptors, (current->next != ps->commands)))
             return;
@@ -172,24 +176,25 @@ void handle_pipeline (pipeline * ps) {
         current = current->next;
     } while (current != ps->commands);
 
+    close(file_descriptors[0]);
+    close(file_descriptors[1]);
+
 
     while(number_of_child_processes--){
-        printf("%d", number_of_child_processes);
-        fflush(stdout);
+//        printf("%d", number_of_child_processes);
+//        fflush(stdout);
         wait(&status);
     }
 
-    //close(file_descriptors[0]);
-    //close(file_descriptors[1]);
-
-    //handle_command_in_pipeline(ps->comands->com);
 }
 
 int handle_command_in_pipeline (command* com, int * file_descriptors, int has_next) {
 
-
     argseq * args = com->args;
     redirseq * redirs = com->redirs;
+
+    int input;
+    int old_output;
 
     if (*com->args->arg == 0 || *com->args->arg == '#'){
         fprintf(stderr, "%s\n", SYNTAX_ERROR_STR);
@@ -198,11 +203,10 @@ int handle_command_in_pipeline (command* com, int * file_descriptors, int has_ne
 
     char ** args_array = get_command_args(args);
 
-
+    // quite hard to
     fptr builtin_fun = is_builtin(args_array[0]);
 
     if (builtin_fun != NULL) {
-        handle_redirs(redirs);
         if (builtin_fun(args_array)) {
             fprintf(stderr, BUILTIN_ERROR_STR, args_array[0]);
             return -1;
@@ -210,26 +214,31 @@ int handle_command_in_pipeline (command* com, int * file_descriptors, int has_ne
         return 0;
     }
 
+    input = file_descriptors[0];
+    old_output = file_descriptors[1];
 
+    pipe(file_descriptors);
 
     child_pid = fork();
 
-
     if (child_pid == 0) {
-        dup2(file_descriptors[1], 1);
+        dup2(input, 0);
+        if(old_output!= 1) close(old_output);
 
-        if(has_next){
-            pipe(file_descriptors);
-            dup2(file_descriptors[0], 0);
+        close(file_descriptors[0]);
+
+        if (has_next) {
+            dup2(file_descriptors[1], 1);
+        } else {
+            close(file_descriptors[1]);
         }
 
         handle_redirs(redirs);
 
         run_child_process(args_array);
-    }
-    else{
-        //close(file_descriptors[0]);
-        //close(file_descriptors[1]);
+    } else if (input != 0) {
+            close(input);
+            close(old_output);
     }
 
     return 0;

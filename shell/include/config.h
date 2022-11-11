@@ -15,7 +15,7 @@
 
 #define EXEC_FAILURE 127
 
-#define WRONG_REDIR 3
+#define WRONG_REDIR -1
 
 #define PROMPT_STR "$ "
 
