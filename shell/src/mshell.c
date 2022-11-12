@@ -162,7 +162,8 @@ void handle_pipeline (pipeline * ps) {
     commandseq * current = ps->commands;
 
     do {
-        handle_command_in_pipeline(current->com, file_descriptors, (current->next != ps->commands));
+        if(handle_command_in_pipeline(current->com, file_descriptors, (current->next != ps->commands)))
+            return;
 
         number_of_child_processes++;
 
@@ -192,6 +193,8 @@ int handle_command_in_pipeline (command* com, int * file_descriptors, int has_ne
 
     char ** args_array = get_command_args(args);
 
+
+    // Should do builtin case better
     fptr builtin_fun = is_builtin(args_array[0]);
 
     if (builtin_fun != NULL) {
@@ -199,7 +202,7 @@ int handle_command_in_pipeline (command* com, int * file_descriptors, int has_ne
             fprintf(stderr, BUILTIN_ERROR_STR, args_array[0]);
             return -1;
         }
-        return 0;
+        return 1;
     }
 
     input = file_descriptors[0];
