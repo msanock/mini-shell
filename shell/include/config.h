@@ -19,6 +19,10 @@
 
 #define PROMPT_STR "$ "
 
+typedef struct {
+    int pid;
+    int status;
+} note;
 
 
 #endif /* !_CONFIG_H_ */

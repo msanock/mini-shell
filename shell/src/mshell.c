@@ -6,11 +6,13 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <string.h>
+#include <signal.h>
 
 #include "config.h"
 #include "siparse.h"
 #include "utils.h"
-#include "string.h"
+
 #include "builtins.h"
 
 
@@ -25,6 +27,16 @@ struct Buffer {
 // input info
 struct stat stdin_info;
 int is_tty;
+
+//foreground processes
+int foreground_all;
+int unfinished_foreground;
+int * foreground;
+
+//background processes
+int finished_background;
+note * background_notes;
+
 
 // process info
 pid_t child_pid;
@@ -51,12 +63,54 @@ void move_buffer ();
 
 void read_prep ();
 
+void read_to_buffer();
+
 void length_check ();
 
 void handle_multi_line ();
 
+void sigchld_handler(int signum) {
+    pid_t pid;
+    int i;
+    do{
+        pid = waitpid(-1, &status, WNOHANG);
+        if (pid > 0)
+            i = 0;
+            while (i < foreground_all) {
+                if(foreground[i] == pid) {
+                    unfinished_foreground--;
+                    break;
+                }
+            }
+            background_notes[finished_background].pid = pid;
+            background_notes[finished_background].status = status;
+    }while(pid > 0);
+
+}
+
+
+//struktura notatek
+
+//na readzie obsługuj dzieci!!
+//tam gdzie blokujesz dopuszczaj sygnały!
+//write(nie trzeba) read(oj byczku)
+
+//co do siginta ?
+//handler - wystarczy pusty ale mało wydajny
+//block - trzeba odblokowywać i no bedzie czekał zeby przyjsc
+//ignore - najlepiej ale trzeba odblokowywać
+//sygnały nie są dziedziczone ???
+//setsid po to żeby odpiąc dzieci od grupy
+//ojjjj
 
 int main (int argc, char *argv[]) {
+    sigset_t set;
+
+    sigemptyset(&set);
+    sigaddset(&set, SIGINT);
+    sigprocmask(SIG_BLOCK, &set, NULL);
+
+
 
     if (fstat(fileno(stdin), &stdin_info) == -1) {
         perror("fstat: ");
@@ -91,9 +145,6 @@ int main (int argc, char *argv[]) {
 
         length_check();
 
-
-        // after checks new command starts at the beginning of the file
-        buffer.begin_new_command = buffer.buf;//delete
 
         if (buffer.end_of_command != NULL)
             handle_multi_line();
@@ -173,8 +224,15 @@ void handle_pipeline (pipeline * ps) {
     close(file_descriptors[0]);
     close(file_descriptors[1]);
 
-    while(number_of_child_processes--)
-        wait(&status);
+
+    //do while sigsuspend(coś)
+
+    //block (sigchild)
+    while(number_of_child_processes--){
+
+    } //move before read
+        //(nie tu) waitpid tylko w handlerze if from foreground counter -- else print
+        //else
 
 }
 
@@ -202,7 +260,7 @@ int handle_command_in_pipeline (command* com, int * file_descriptors, int has_ne
             fprintf(stderr, BUILTIN_ERROR_STR, args_array[0]);
             return -1;
         }
-        return 1;
+        return 10;
     }
 
     input = file_descriptors[0];
@@ -349,7 +407,7 @@ void handle_redirs(redirseq * redirs) {
             else
                 flags |= O_TRUNC;
         }
-        
+
         new_descriptor = open(current->r->filename, flags, 0644);
 
         if (new_descriptor == -1){
