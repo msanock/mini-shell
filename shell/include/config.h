@@ -12,6 +12,9 @@
 #define PERMISSION_ERROR_STR ": permission denied\n"
 #define EXEC_ERROR_STR ": exec error\n"
 #define BUILTIN_ERROR_STR "Builtin %s error.\n"
+#define BACKGROUND_REPORT "Background process %d terminated. "
+#define BACKGROUND_EXITED "exited with status "
+#define BACKGROUND_KILLED "killed by signal "
 
 #define EXEC_FAILURE 127
 
@@ -19,10 +22,12 @@
 
 #define PROMPT_STR "$ "
 
-typedef struct {
+typedef struct note {
     int pid;
     int status;
 } note;
+
+
 
 
 #endif /* !_CONFIG_H_ */
