@@ -82,42 +82,32 @@ void sigchld_handler(int signum) {
     int i;
     do{
         pid = waitpid(-1, &status, WNOHANG);
-        if (pid > 0)
+        if (pid > 0) {
             i = 0;
             while (i < foreground_all) {
-                if(foreground[i] == pid) {
+                if (foreground[i] == pid) {
                     unfinished_foreground--;
                     break;
                 }
+                i++;
             }
-            background_notes[finished_background].pid = pid;
-            background_notes[finished_background].status = status;
-            finished_background++;
+            if (i >= foreground_all) {
+                background_notes[finished_background].pid = pid;
+                background_notes[finished_background].status = status;
+                finished_background++;
+            }
+        }
     }while(pid > 0);
 
 }
 
 
-//struktura notatek
-
-//na readzie obsługuj dzieci!!
-//tam gdzie blokujesz dopuszczaj sygnały!
-//write(nie trzeba) read(oj byczku)
-
-//co do siginta ?
-//handler - wystarczy pusty ale mało wydajny
-//block - trzeba odblokowywać i no bedzie czekał zeby przyjsc
-//ignore - najlepiej ale trzeba odblokowywać
-//sygnały nie są dziedziczone ???
-//setsid po to żeby odpiąc dzieci od grupy
-//ojjjj
-
 int main (int argc, char *argv[]) {
-
 
     sigemptyset(&set);
     sigaddset(&set, SIGINT);
     sigprocmask(SIG_BLOCK, &set, NULL);
+    signal(SIGCHLD, sigchld_handler);
 
     if (fstat(fileno(stdin), &stdin_info) == -1) {
         perror("fstat: ");
@@ -172,9 +162,9 @@ void background_report(){
         fprintf(stdout, "Background process %d terminated. ", background_notes[i].pid);
 
         if (WIFEXITED(background_notes[i].status))
-            fprintf(stdout, "(%s%d)", BACKGROUND_EXITED, WEXITSTATUS(background_notes[i].status));
+            fprintf(stdout, "(%s%d)\n", BACKGROUND_EXITED, WEXITSTATUS(background_notes[i].status));
         else if (WIFSIGNALED(background_notes[i].status))
-            fprintf(stdout, "(%s%d)", BACKGROUND_KILLED, WTERMSIG(background_notes[i].status));
+            fprintf(stdout, "(%s%d)\n", BACKGROUND_KILLED, WTERMSIG(background_notes[i].status));
     }
     finished_background = 0;
 }
@@ -231,10 +221,9 @@ void handle_line (){
 }
 
 void handle_pipeline (pipeline * ps) {
-    int number_of_child_processes = 0;
     int file_descriptors[2];
 
-    is_background_process = (ps->flags = INBACKGROUND);
+    is_background_process = (ps->flags == INBACKGROUND);
 
     file_descriptors[0] = 0;
     file_descriptors[1] = 1;
@@ -245,8 +234,6 @@ void handle_pipeline (pipeline * ps) {
         if(handle_command_in_pipeline(current->com, file_descriptors, (current->next != ps->commands)))
             return;
 
-        number_of_child_processes++;
-
         current = current->next;
     } while (current != ps->commands);
 
@@ -254,15 +241,13 @@ void handle_pipeline (pipeline * ps) {
     close(file_descriptors[1]);
 
 
-    //do while sigsuspend(coś)
+    sigemptyset(&set);
+    sigaddset(&set, SIGCHLD);
+    sigprocmask(SIG_UNBLOCK, &set, NULL);
 
-    //block (sigchild)
     while(unfinished_foreground){
-        sigemptyset(&set);
-        sigsuspend(&set);
-    } //move before read
-        //(nie tu) waitpid tylko w handlerze if from foreground counter -- else print
-        //else
+        sigsuspend(NULL);
+    }
 
 }
 
@@ -280,7 +265,6 @@ int handle_command_in_pipeline (command* com, int * file_descriptors, int has_ne
     }
 
     char ** args_array = get_command_args(args);
-
 
     // Should do builtin case better
     fptr builtin_fun = is_builtin(args_array[0]);
@@ -301,12 +285,12 @@ int handle_command_in_pipeline (command* com, int * file_descriptors, int has_ne
     child_pid = fork();
 
     if (child_pid == 0) {
-        if (is_background_process)
-            setsid();
         sigemptyset(&set);
         sigaddset(&set, SIGCHLD);
         if (!is_background_process)
             sigaddset(&set, SIGINT);
+        else
+            setsid();
         sigprocmask(SIG_UNBLOCK, &set, NULL);
 
         dup2(input, 0);
