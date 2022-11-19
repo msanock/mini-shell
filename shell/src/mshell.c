@@ -104,9 +104,10 @@ void sigchld_handler(int signum) {
 
 int main (int argc, char *argv[]) {
 
-    sigemptyset(&set);
-    sigaddset(&set, SIGINT);
-    sigprocmask(SIG_BLOCK, &set, NULL);
+//    sigemptyset(&set);
+//    sigaddset(&set, SIGINT);
+//    sigprocmask(SIG_BLOCK, &set, NULL);
+    sigblock(SIGINT);
     signal(SIGCHLD, sigchld_handler);
 
     if (fstat(fileno(stdin), &stdin_info) == -1) {
@@ -122,8 +123,6 @@ int main (int argc, char *argv[]) {
         sigemptyset(&set);
         sigaddset(&set, SIGCHLD);
         sigprocmask(SIG_BLOCK, &set, NULL);
-
-        background_report();
 
         read_prep();
 
@@ -166,12 +165,14 @@ void background_report(){
         else if (WIFSIGNALED(background_notes[i].status))
             fprintf(stdout, "(%s%d)\n", BACKGROUND_KILLED, WTERMSIG(background_notes[i].status));
     }
+    fflush(stdout);
     finished_background = 0;
 }
 
 void read_prep () {
 
     if (is_tty) {
+        background_report();
         fprintf(stdout, "%s", PROMPT_STR);
         fflush(stdout);
         buffer.write_to_buffer_ptr = buffer.buf;
@@ -287,11 +288,10 @@ int handle_command_in_pipeline (command* com, int * file_descriptors, int has_ne
     if (child_pid == 0) {
         sigemptyset(&set);
         sigaddset(&set, SIGCHLD);
-        if (!is_background_process)
-            sigaddset(&set, SIGINT);
-        else
-            setsid();
+        sigaddset(&set, SIGINT);
         sigprocmask(SIG_UNBLOCK, &set, NULL);
+        if (is_background_process)
+            setsid();
 
         dup2(input, 0);
         if(old_output!= 1) close(old_output);
@@ -308,6 +308,7 @@ int handle_command_in_pipeline (command* com, int * file_descriptors, int has_ne
 
         run_child_process(args_array);
     } else{
+        sigblock(SIGINT);
         if (!is_background_process){
             foreground[foreground_all++] = child_pid;
             unfinished_foreground++;
