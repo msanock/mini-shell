@@ -5,6 +5,7 @@
 #include <signal.h>
 #include <dirent.h>
 #include <limits.h>
+#include <errno.h>
 
 #include "builtins.h"
 #include "config.h"
@@ -82,6 +83,7 @@ int change_directory (char  * argv[]) {
 
 int kill_process (char * argv[]) {
 
+    errno = 0;
     int argc = count_args(argv);
     int signal = SIGTERM;
     pid_t pid = 0;
@@ -104,7 +106,8 @@ int kill_process (char * argv[]) {
         pid = strtol(argv[2], &c, 0);
     }
 
-    if(*c != '\0')
+
+    if(*c != '\0' || errno == ERANGE)
         return BUILTIN_ERROR;
 
     return kill(pid, signal);

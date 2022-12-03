@@ -33,7 +33,7 @@ printcommand(command *pcmd, int k)
 	if (redirs){
 		do{	
 			flags = redirs->r->flags;
-			printf("(%s,%s):",redirs->r->filename,IS_RIN(flags)?"<": IS_ROUT(flags) ?">": IS_RAPPEND(flags)?">>":"??");
+			printf("(%s,%s):",redirs->r->filename,IS_RIN(flags) ?"<": IS_ROUT(flags) ?">": IS_RAPPEND(flags)?">>":"??");
 			redirs= redirs->next;
 		} while (redirs!=pcmd->redirs);	
 	}
@@ -161,7 +161,8 @@ void handle_pipeline (pipeline * ps) {
     sigprocmask(SIG_UNBLOCK, &set, NULL);
 
     while(unfinished_foreground){
-        sigsuspend(NULL);
+        sigemptyset(&set);
+        sigsuspend(&set);
     }
 }
 
