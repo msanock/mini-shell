@@ -1,6 +1,7 @@
 #ifndef _CONFIG_H_
 #define _CONFIG_H_
 
+
 #define MAX_LINE_LENGTH 2048
 #define MAX_BUFFER_READ 2049
 #define BUFFER_SIZE 4100
@@ -21,13 +22,6 @@
 #define WRONG_REDIR -1
 
 #define PROMPT_STR "$ "
-
-typedef struct note {
-    int pid;
-    int status;
-} note;
-
-
 
 
 #endif /* !_CONFIG_H_ */

@@ -71,6 +71,8 @@ typedef struct pipelineseq {
  */
 pipelineseq * parseline(char *);
 
+pipelineseq *ln;
+
 /* parse flags returned in errno when 'parseline' returns NULL */
 #define ALLOCFAILED 1
 #define YYERRORFLAG 2

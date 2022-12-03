@@ -26,7 +26,7 @@ builtin_pair builtins_table[]={
 	{NULL,NULL}
 };
 
-fptr is_builtin(char * command){
+fptr is_builtin(char * command) {
     builtin_pair * current_builtin = builtins_table;
 
     while(current_builtin->name != NULL){
