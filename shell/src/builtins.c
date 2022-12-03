@@ -44,7 +44,6 @@ int count_args(char * argv[]) {
     while (argv[i])
         i++;
 
-    //printf("%d", i);
     return i;
 }
 
@@ -70,9 +69,9 @@ int change_directory (char  * argv[]) {
     int argc = count_args(argv);
     char * path = getenv("HOME");
 
-    if (argc > 2) {
+    if (argc > 2)
         return BUILTIN_ERROR;
-    }
+
 
     if (argc == 2)
         path = argv[1];
@@ -88,13 +87,11 @@ int kill_process (char * argv[]) {
     pid_t pid = 0;
     char * c;
 
-    if (argc == 1 || argc > 3) {
+    if (argc == 1 || argc > 3)
         return BUILTIN_ERROR;
-    }
 
     if (argc == 2)
         pid = strtol(argv[1], &c, 0);
-
     else {
         if(argv[1][0] != '-')
             return BUILTIN_ERROR;

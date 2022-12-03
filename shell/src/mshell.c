@@ -2,36 +2,26 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <stdlib.h>
-#include <errno.h>
-#include <sys/types.h>
 #include <sys/stat.h>
-#include <fcntl.h>
 #include <string.h>
 #include <signal.h>
 
 #include "config.h"
 #include "siparse.h"
 #include "utils.h"
-
 #include "builtins.h"
 
 
 void move_buffer ();
 
-void background_report();
-
 void read_prep ();
 
-void read_to_buffer();
-
 void length_check ();
-
-void handle_multi_line ();
 
 void sigchld_handler(int signum) {
     pid_t pid;
     int i;
-    do{
+    do {
         pid = waitpid(-1, &status, WNOHANG);
         if (pid > 0) {
             i = 0;
@@ -48,7 +38,10 @@ void sigchld_handler(int signum) {
                 finished_background++;
             }
         }
-    }while(pid > 0);
+    } while(pid > 0);
+}
+
+void sigint_handler(int signum) {
 
 }
 
@@ -58,10 +51,7 @@ int is_tty;
 
 int main (int argc, char *argv[]) {
 
-//    sigemptyset(&set);
-//    sigaddset(&set, SIGINT);
-//    sigprocmask(SIG_BLOCK, &set, NULL);
-    sigblock(SIGINT);
+    signal(SIGINT, SIG_IGN);
     signal(SIGCHLD, sigchld_handler);
 
     if (fstat(fileno(stdin), &stdin_info) == -1) {
@@ -104,23 +94,18 @@ int main (int argc, char *argv[]) {
 
         length_check();
 
-
         if (buffer.end_of_command != NULL)
             handle_multi_line();
     }
 }
 
-void background_report(){
-    for (int i = 0; i < finished_background; i++) {
-        fprintf(stdout, "Background process %d terminated. ", background_notes[i].pid);
+void move_buffer () {
 
-        if (WIFEXITED(background_notes[i].status))
-            fprintf(stdout, "(%s%d)\n", BACKGROUND_EXITED, WEXITSTATUS(background_notes[i].status));
-        else if (WIFSIGNALED(background_notes[i].status))
-            fprintf(stdout, "(%s%d)\n", BACKGROUND_KILLED, WTERMSIG(background_notes[i].status));
-    }
-    fflush(stdout);
-    finished_background = 0;
+    memmove(buffer.buf, buffer.end_of_command+1, buffer.length);
+    buffer.buf[buffer.length] = 0;
+
+    buffer.end_of_command = strchr(buffer.buf, '\n');
+
 }
 
 void read_prep () {
@@ -135,8 +120,6 @@ void read_prep () {
 
     buffer.begin_new_command = buffer.buf;
 }
-
-
 
 void length_check () {
 
@@ -172,90 +155,5 @@ void length_check () {
 
     //after checks new command starts at the beginning of the file
     buffer.begin_new_command = buffer.buf;
-
-}
-
-void move_buffer () {
-
-    memmove(buffer.buf, buffer.end_of_command+1, buffer.length);
-    buffer.buf[buffer.length] = 0;
-
-    buffer.end_of_command = strchr(buffer.buf, '\n');
-
-}
-
-char ** get_command_args(argseq * args) {
-
-    // counting number of args, additional memory for NULL
-    argseq * current = args;
-
-    int i = 1;
-    do {
-        i++;
-        current = current->next;
-    } while (args != current);
-
-    char **args_array = (char **) malloc(i * sizeof(char *));
-
-    // assigning values
-    current = args;
-    i = 0;
-    do {
-        args_array[i++] = current->arg;
-        current = current->next;
-    } while (args != current);
-
-    args_array[i] = NULL;
-
-    return args_array;
-
-}
-
-void handle_redirs(redirseq * redirs) {
-    if (redirs == NULL)
-        return;
-
-    redirseq * current = redirs;
-    int new_descriptor;
-    int flags = 0;
-
-
-    do {
-        if (IS_RIN(current->r->flags))
-            flags = O_RDONLY;
-
-        else {
-            flags = O_WRONLY | O_CREAT;
-            if (IS_RAPPEND(current->r->flags))
-                flags |= O_APPEND;
-            else
-                flags |= O_TRUNC;
-        }
-
-        new_descriptor = open(current->r->filename, flags, 0644);
-
-        if (new_descriptor == -1){
-            switch (errno) {
-                case ENOENT:
-                    fprintf(stderr, "%s%s", current->r->filename, BAD_ADDRESS_ERROR_STR);
-                    break;
-
-                case EPERM:
-                    fprintf(stderr, "%s%s", current->r->filename, PERMISSION_ERROR_STR);
-                    break;
-            }
-
-            exit(WRONG_REDIR);
-        }
-
-        if (IS_RIN(current->r->flags))
-            dup2(new_descriptor, 0);
-        else
-            dup2(new_descriptor, 1);
-
-        close(new_descriptor);
-
-        current = current->next;
-    } while (redirs != current);
 
 }

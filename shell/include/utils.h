@@ -4,7 +4,6 @@
 
 #include "siparse.h"
 #include "config.h"
-//#include "siparse.c"
 
 //struct for storing notes of background processes
 typedef struct note {
@@ -29,7 +28,7 @@ pid_t child_pid;
 
 //foreground processes
 int foreground_all;
-int foreground[100];
+int foreground[MAX_FOREGROUND_PROCESSES];
 int unfinished_foreground;
 
 //status of child process
@@ -40,7 +39,7 @@ sigset_t set;
 
 //background processes
 int finished_background;
-note background_notes[100];
+note background_notes[MAX_BACKGROUND_PROCESSES];
 
 // number of bytes read by read function
 ssize_t read_value;
@@ -51,17 +50,21 @@ void printparsedline(pipelineseq *);
 
 command * pickfirstcommand(pipelineseq *);
 
-char ** get_command_args (argseq *);
-
-void handle_redirs (redirseq *);
-
-void run_child_process (char **);
+void handle_multi_line ();
 
 void handle_line ();
 
 void handle_pipeline(pipeline *);
 
 int handle_command_in_pipeline(command *, int *, int);
+
+char ** get_command_args (argseq *);
+
+void handle_redirs (redirseq *);
+
+void run_child_process (char **);
+
+void background_report();
 
 
 #endif /* !_UTILS_H_ */
