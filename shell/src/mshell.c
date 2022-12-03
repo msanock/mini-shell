@@ -11,7 +11,6 @@
 #include "utils.h"
 #include "builtins.h"
 
-
 void move_buffer ();
 
 void read_prep ();
@@ -52,7 +51,11 @@ int is_tty;
 int main (int argc, char *argv[]) {
 
     signal(SIGINT, SIG_IGN);
-    signal(SIGCHLD, sigchld_handler);
+    //sigaction(SIGCHLD, sigchld_handler);
+    sigchld_action.sa_handler = sigchld_handler;
+    sigchld_action.sa_flags = 0;
+    sigemptyset(&sigchld_action.sa_mask);
+    sigaction(SIGCHLD, &sigchld_action, NULL);
 
     if (fstat(fileno(stdin), &stdin_info) == -1) {
         perror("fstat: ");
@@ -144,6 +147,7 @@ void length_check () {
         buffer.length = read_value - (buffer.end_of_command+1 - buffer.buf);
         move_buffer();
     }
+
     // current command's '\n' is further than max line length
     // program moves next command to the beginning of buffer
     else if(buffer.end_of_command+1-buffer.buf > MAX_LINE_LENGTH) {

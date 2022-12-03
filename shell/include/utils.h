@@ -44,6 +44,9 @@ note background_notes[MAX_BACKGROUND_PROCESSES];
 // number of bytes read by read function
 ssize_t read_value;
 
+//
+struct sigaction sigchld_action;
+
 void printcommand(command *, int);
 void printpipeline(pipeline *, int);
 void printparsedline(pipelineseq *);
