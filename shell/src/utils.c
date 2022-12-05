@@ -295,7 +295,10 @@ void handle_redirs(redirseq * redirs) {
                 case EACCES:
                     fprintf(stderr, "%s%s", current->r->filename, PERMISSION_ERROR_STR);
                     break;
-            }
+
+                case EPERM:
+                    fprintf(stderr, "%s%s", current->r->filename, PERMISSION_ERROR_STR);
+                    break;            }
 
             exit(WRONG_REDIR);
         }
