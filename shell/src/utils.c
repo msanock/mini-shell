@@ -292,7 +292,7 @@ void handle_redirs(redirseq * redirs) {
                     fprintf(stderr, "%s%s", current->r->filename, BAD_ADDRESS_ERROR_STR);
                     break;
 
-                case EPERM:
+                case EACCES:
                     fprintf(stderr, "%s%s", current->r->filename, PERMISSION_ERROR_STR);
                     break;
             }
