@@ -11,12 +11,19 @@
 #include "utils.h"
 #include "builtins.h"
 
+void initialize ();
 
 void move_buffer ();
 
 void read_prep ();
 
 void length_check ();
+
+
+// input info
+struct stat stdin_info;
+int is_tty;
+
 
 void sigchld_handler(int signum) {
     pid_t pid;
@@ -41,49 +48,19 @@ void sigchld_handler(int signum) {
     } while(pid > 0);
 }
 
-// input info
-struct stat stdin_info;
-int is_tty;
-
-
-
 int main (int argc, char *argv[]) {
 
-    sigchld_action.sa_handler = sigchld_handler;
-    sigchld_action.sa_flags = SA_SIGINFO;
-    sigemptyset(&sigchld_action.sa_mask);
-    sigaction(SIGCHLD, &sigchld_action, NULL);
-
-    sigint_action.sa_handler = SIG_IGN;
-    sigint_action.sa_flags = 0;
-    sigemptyset(&sigint_action.sa_mask);
-    sigaction(SIGINT, &sigint_action, NULL);
-
-    sigemptyset(&set);
-    sigprocmask(SIG_BLOCK, &set, NULL);
-
-    //signal(SIGINT, SIG_IGN);
-    //signal(SIGCHLD, sigchld_handler);
-
-    if (fstat(fileno(stdin), &stdin_info) == -1) {
-        perror("fstat: ");
-        exit(EXEC_FAILURE);
-    }
-
-    is_tty = S_ISCHR(stdin_info.st_mode);
-    buffer.length = 0;
-
-    finished_background = 0;
+    initialize();
 
     while (1) {
-        sigemptyset(&set);
-        sigaddset(&set, SIGCHLD);
+//        sigemptyset(&set);
+//        sigaddset(&set, SIGCHLD);
         sigprocmask(SIG_BLOCK, &set, NULL);
 
         read_prep();
 
-        sigemptyset(&set);
-        sigaddset(&set, SIGCHLD);
+        //sigemptyset(&set);
+        //sigaddset(&set, SIGCHLD);
         sigprocmask(SIG_UNBLOCK, &set, NULL);
 
         read_value = read(0, buffer.write_to_buffer_ptr, MAX_BUFFER_READ);
@@ -91,8 +68,9 @@ int main (int argc, char *argv[]) {
             perror("read: ");
             exit(EXEC_FAILURE);
         }
-        sigemptyset(&set);
-        sigaddset(&set, SIGCHLD);
+
+//        sigemptyset(&set);
+//        sigaddset(&set, SIGCHLD);
         sigprocmask(SIG_BLOCK, &set, NULL);
 
         buffer.length += read_value;
@@ -114,6 +92,34 @@ int main (int argc, char *argv[]) {
         if (buffer.end_of_command != NULL)
             handle_multi_line();
     }
+}
+
+void initialize () {
+
+    sigchld_action.sa_handler = sigchld_handler;
+    sigchld_action.sa_flags = SA_SIGINFO;
+    sigemptyset(&sigchld_action.sa_mask);
+    sigaction(SIGCHLD, &sigchld_action, NULL);
+
+    sigint_action.sa_handler = SIG_IGN;
+    sigint_action.sa_flags = 0;
+    sigemptyset(&sigint_action.sa_mask);
+    sigaction(SIGINT, &sigint_action, NULL);
+
+    sigemptyset(&set);
+    sigaddset(&set, SIGCHLD);
+    sigprocmask(SIG_BLOCK, &set, NULL);
+
+    if (fstat(fileno(stdin), &stdin_info) == -1) {
+        perror("fstat: ");
+        exit(EXEC_FAILURE);
+    }
+
+    is_tty = S_ISCHR(stdin_info.st_mode);
+    buffer.length = 0;
+
+    finished_background = 0;
+
 }
 
 void move_buffer () {
