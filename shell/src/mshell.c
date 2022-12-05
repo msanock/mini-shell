@@ -11,6 +11,7 @@
 #include "utils.h"
 #include "builtins.h"
 
+
 void move_buffer ();
 
 void read_prep ();
@@ -40,27 +41,35 @@ void sigchld_handler(int signum) {
     } while(pid > 0);
 }
 
-void sigint_handler(int signum) {
-
-}
-
 // input info
 struct stat stdin_info;
 int is_tty;
 
+
+
 int main (int argc, char *argv[]) {
 
-    signal(SIGINT, SIG_IGN);
-    //sigaction(SIGCHLD, sigchld_handler);
     sigchld_action.sa_handler = sigchld_handler;
-    sigchld_action.sa_flags = 0;
+    sigchld_action.sa_flags = SA_SIGINFO;
     sigemptyset(&sigchld_action.sa_mask);
     sigaction(SIGCHLD, &sigchld_action, NULL);
+
+    sigint_action.sa_handler = SIG_IGN;
+    sigint_action.sa_flags = 0;
+    sigemptyset(&sigint_action.sa_mask);
+    sigaction(SIGINT, &sigint_action, NULL);
+
+    sigemptyset(&set);
+    sigprocmask(SIG_BLOCK, &set, NULL);
+
+    //signal(SIGINT, SIG_IGN);
+    //signal(SIGCHLD, sigchld_handler);
 
     if (fstat(fileno(stdin), &stdin_info) == -1) {
         perror("fstat: ");
         exit(EXEC_FAILURE);
     }
+
     is_tty = S_ISCHR(stdin_info.st_mode);
     buffer.length = 0;
 
@@ -73,12 +82,17 @@ int main (int argc, char *argv[]) {
 
         read_prep();
 
+        sigemptyset(&set);
+        sigaddset(&set, SIGCHLD);
         sigprocmask(SIG_UNBLOCK, &set, NULL);
+
         read_value = read(0, buffer.write_to_buffer_ptr, MAX_BUFFER_READ);
         if (read_value == -1) {
             perror("read: ");
             exit(EXEC_FAILURE);
         }
+        sigemptyset(&set);
+        sigaddset(&set, SIGCHLD);
         sigprocmask(SIG_BLOCK, &set, NULL);
 
         buffer.length += read_value;
@@ -147,7 +161,6 @@ void length_check () {
         buffer.length = read_value - (buffer.end_of_command+1 - buffer.buf);
         move_buffer();
     }
-
     // current command's '\n' is further than max line length
     // program moves next command to the beginning of buffer
     else if(buffer.end_of_command+1-buffer.buf > MAX_LINE_LENGTH) {

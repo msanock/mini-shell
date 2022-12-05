@@ -10,7 +10,7 @@
 #include "config.h"
 #include "builtins.h"
 
-void 
+void
 printcommand(command *pcmd, int k)
 {
 	int flags;
@@ -31,11 +31,11 @@ printcommand(command *pcmd, int k)
 	printf("\n\t\tredirections=:");
 	redirseq * redirs = pcmd->redirs;
 	if (redirs){
-		do{	
+		do{
 			flags = redirs->r->flags;
 			printf("(%s,%s):",redirs->r->filename,IS_RIN(flags) ?"<": IS_ROUT(flags) ?">": IS_RAPPEND(flags)?">>":"??");
 			redirs= redirs->next;
-		} while (redirs!=pcmd->redirs);	
+		} while (redirs!=pcmd->redirs);
 	}
 
 	printf("\n");
@@ -50,7 +50,7 @@ printpipeline(pipeline * p, int k)
 	commandseq * commands= p->commands;
 
 	printf("PIPELINE %d\n",k);
-	
+
 	if (commands==NULL){
 		printf("\t(NULL)\n");
 		return;
@@ -93,7 +93,7 @@ pickfirstcommand(pipelineseq * ppls)
 		|| (ppls->pipeline==NULL)
 		|| (ppls->pipeline->commands==NULL)
 		|| (ppls->pipeline->commands->com==NULL))	return NULL;
-	
+
 	return ppls->pipeline->commands->com;
 }
 
@@ -164,6 +164,7 @@ void handle_pipeline (pipeline * ps) {
         sigemptyset(&set);
         sigsuspend(&set);
     }
+    foreground_all = 0;
 }
 
 int handle_command_in_pipeline (command* com, int * file_descriptors, int has_next) {

@@ -46,6 +46,7 @@ ssize_t read_value;
 
 //
 struct sigaction sigchld_action;
+struct sigaction sigint_action;
 
 void printcommand(command *, int);
 void printpipeline(pipeline *, int);
