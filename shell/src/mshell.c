@@ -19,17 +19,16 @@ void read_prep ();
 
 void length_check ();
 
-
 // input info
 struct stat stdin_info;
 int is_tty;
 
 
-void sigchld_handler(int signum) {
+void sigchld_handler(int signum, siginfo_t *info, void *context) {
     pid_t pid;
     int i;
     do {
-        pid = waitpid(-1, &status, WNOHANG);
+        pid = waitpid(-1, &child_status, WNOHANG);
         if (pid > 0) {
             i = 0;
             while (i < foreground_all) {
@@ -41,27 +40,26 @@ void sigchld_handler(int signum) {
             }
             if (i >= foreground_all) {
                 background_notes[finished_background].pid = pid;
-                background_notes[finished_background].status = status;
+                background_notes[finished_background].status = child_status;
                 finished_background++;
             }
         }
     } while(pid > 0);
 }
 
+
 int main (int argc, char *argv[]) {
 
     initialize();
 
     while (1) {
-//        sigemptyset(&set);
-//        sigaddset(&set, SIGCHLD);
-        sigprocmask(SIG_BLOCK, &set, NULL);
+        // signals_set = {SIGCHLD}
+
+        sigprocmask(SIG_BLOCK, &signals_set, NULL);
 
         read_prep();
 
-        //sigemptyset(&set);
-        //sigaddset(&set, SIGCHLD);
-        sigprocmask(SIG_UNBLOCK, &set, NULL);
+        sigprocmask(SIG_UNBLOCK, &signals_set, NULL);
 
         read_value = read(0, buffer.write_to_buffer_ptr, MAX_BUFFER_READ);
         if (read_value == -1) {
@@ -69,9 +67,7 @@ int main (int argc, char *argv[]) {
             exit(EXEC_FAILURE);
         }
 
-//        sigemptyset(&set);
-//        sigaddset(&set, SIGCHLD);
-        sigprocmask(SIG_BLOCK, &set, NULL);
+        sigprocmask(SIG_BLOCK, &signals_set, NULL);
 
         buffer.length += read_value;
         buffer.buf[buffer.length] = 0;
@@ -94,9 +90,11 @@ int main (int argc, char *argv[]) {
     }
 }
 
+
 void initialize () {
 
-    sigchld_action.sa_handler = sigchld_handler;
+    // since POSIX.1-2001
+    sigchld_action.sa_sigaction = sigchld_handler;
     sigchld_action.sa_flags = SA_SIGINFO;
     sigemptyset(&sigchld_action.sa_mask);
     sigaction(SIGCHLD, &sigchld_action, NULL);
@@ -106,9 +104,8 @@ void initialize () {
     sigemptyset(&sigint_action.sa_mask);
     sigaction(SIGINT, &sigint_action, NULL);
 
-    sigemptyset(&set);
-    sigaddset(&set, SIGCHLD);
-    sigprocmask(SIG_BLOCK, &set, NULL);
+    sigemptyset(&signals_set);
+    sigaddset(&signals_set, SIGCHLD);
 
     if (fstat(fileno(stdin), &stdin_info) == -1) {
         perror("fstat: ");
@@ -122,6 +119,7 @@ void initialize () {
 
 }
 
+
 void move_buffer () {
 
     memmove(buffer.buf, buffer.end_of_command+1, buffer.length);
@@ -130,6 +128,7 @@ void move_buffer () {
     buffer.end_of_command = strchr(buffer.buf, '\n');
 
 }
+
 
 void read_prep () {
 
@@ -143,6 +142,7 @@ void read_prep () {
 
     buffer.begin_new_command = buffer.buf;
 }
+
 
 void length_check () {
 

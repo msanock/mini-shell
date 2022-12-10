@@ -22,8 +22,8 @@ command * pickfirstcommand(pipelineseq * ppls)
 
 void handle_multi_line () {
 
-    //as long as there is command which ends with '\n' execute it
-    while(buffer.end_of_command != NULL) {
+    // as long as there is command which ends with '\n' execute it
+    while (buffer.end_of_command != NULL) {
         *buffer.end_of_command = 0;
 
         handle_line();
@@ -64,29 +64,33 @@ void handle_pipeline (pipeline * ps) {
 
     is_background_process = (ps->flags == INBACKGROUND);
 
-    file_descriptors[0] = 0;
-    file_descriptors[1] = 1;
+    file_descriptors[0] = STDIN_FILENO;
+    file_descriptors[1] = STDOUT_FILENO;
 
     commandseq * current = ps->commands;
 
+    // signals_set = {SIGCHLD}
+    sigprocmask(SIG_UNBLOCK, &signals_set, NULL);
+
     do {
-        if(handle_command_in_pipeline(current->com, file_descriptors, (current->next != ps->commands)))
+        if (handle_command_in_pipeline(current->com, file_descriptors, (current->next != ps->commands)))
             return;
 
         current = current->next;
     } while (current != ps->commands);
 
+
     close(file_descriptors[0]);
     close(file_descriptors[1]);
 
-//    sigemptyset(&set);
-//    sigaddset(&set, SIGCHLD);
-    sigprocmask(SIG_UNBLOCK, &set, NULL);
 
-    while(unfinished_foreground){
-        sigemptyset(&set);
-        sigsuspend(&set);
-    }
+    sigemptyset(&signals_set);
+
+    while (unfinished_foreground)
+        sigsuspend(&signals_set);
+
+    sigaddset(&signals_set, SIGCHLD);
+
     foreground_all = 0;
 }
 
@@ -110,9 +114,10 @@ int handle_command_in_pipeline (command* com, int * file_descriptors, int has_ne
     if (builtin_fun != NULL) {
         if (builtin_fun(args_array)) {
             fprintf(stderr, BUILTIN_ERROR_STR, args_array[0]);
-            return -1;
+            return BUILTIN_FAILURE;
         }
-        return 1;
+
+        return BUILTIN_SUCCESS;
     }
 
     input = file_descriptors[0];
@@ -123,30 +128,41 @@ int handle_command_in_pipeline (command* com, int * file_descriptors, int has_ne
     child_pid = fork();
 
     if (child_pid == 0) {
-        signal(SIGINT, SIG_DFL);
-//        sigemptyset(&set);
-//        sigaddset(&set, SIGCHLD);
-        sigprocmask(SIG_UNBLOCK, &set, NULL);
+
+        sigchld_action.sa_handler = SIG_DFL;
+        sigchld_action.sa_flags = 0;
+
+        sigint_action.sa_handler = SIG_DFL;
+
+        sigaction(SIGCHLD, &sigchld_action, NULL);
+        sigaction(SIGINT, &sigint_action, NULL);
+
+        sigfillset(&signals_set);
+        sigprocmask(SIG_UNBLOCK, &signals_set, NULL);
+        sigemptyset(&signals_set);
 
         if (is_background_process)
             setsid();
 
         dup2(input, 0);
-        if(old_output!= 1) close(old_output);
+
+        if (old_output != 1)
+            close(old_output);
 
         close(file_descriptors[0]);
 
-        if (has_next) {
+        if (has_next)
             dup2(file_descriptors[1], 1);
-        } else {
+        else
             close(file_descriptors[1]);
-        }
 
         handle_redirs(redirs);
 
         run_child_process(args_array);
-    } else{
-        if (!is_background_process){
+
+    } else {
+
+        if (!is_background_process) {
             foreground[foreground_all++] = child_pid;
             unfinished_foreground++;
         }
@@ -154,6 +170,7 @@ int handle_command_in_pipeline (command* com, int * file_descriptors, int has_ne
             close(input);
             close(old_output);
         }
+
     }
 
     return 0;
@@ -192,7 +209,7 @@ void handle_redirs(redirseq * redirs) {
 
     redirseq * current = redirs;
     int new_descriptor;
-    int flags = 0;
+    int flags;
 
 
     do {
@@ -221,7 +238,8 @@ void handle_redirs(redirseq * redirs) {
 
                 case EPERM:
                     fprintf(stderr, "%s%s", current->r->filename, PERMISSION_ERROR_STR);
-                    break;            }
+                    break;
+            }
 
             exit(WRONG_REDIR);
         }
@@ -260,6 +278,7 @@ void run_child_process (char ** args_array) {
 }
 
 void background_report(){
+
     for (int i = 0; i < finished_background; i++) {
         fprintf(stdout, "Background process %d terminated. ", background_notes[i].pid);
 
@@ -268,7 +287,9 @@ void background_report(){
         else if (WIFSIGNALED(background_notes[i].status))
             fprintf(stdout, "(%s%d)\n", BACKGROUND_KILLED, WTERMSIG(background_notes[i].status));
     }
+
     fflush(stdout);
     finished_background = 0;
+
 }
 

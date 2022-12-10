@@ -5,6 +5,7 @@
 #include "siparse.h"
 #include "config.h"
 
+
 //struct for storing notes of background processes
 typedef struct note {
     int pid;
@@ -20,7 +21,7 @@ struct Buffer {
     char * write_to_buffer_ptr;
 } buffer;
 
-//depending on pipeline
+//depending on pipeline flag
 int is_background_process;
 
 // process info
@@ -29,13 +30,13 @@ pid_t child_pid;
 //foreground processes
 int foreground_all;
 int foreground[MAX_FOREGROUND_PROCESSES];
-int unfinished_foreground;
+volatile int unfinished_foreground;
 
 //status of child process
-int status;
+int child_status;
 
 //maks of signals
-sigset_t set;
+sigset_t signals_set;
 
 //background processes
 int finished_background;
@@ -47,6 +48,8 @@ ssize_t read_value;
 //structs to handle SIGCHLD & SIGINT
 struct sigaction sigchld_action;
 struct sigaction sigint_action;
+
+
 
 command * pickfirstcommand(pipelineseq *);
 
