@@ -153,15 +153,22 @@ int handle_command_in_pipeline (command* com, int * file_descriptors, int has_ne
         if (is_background_process)
             setsid();
 
+        // input should be the output of previous child (or 0 if first)
         dup2(input, 0);
+        if (input != 0)
+            close(input);
 
+        // next child's input, not needed here
         close(file_descriptors[0]);
 
+        // if there is next child, output will be next child's input, otherwise descriptor should be closed
         if (has_next)
             dup2(file_descriptors[1], 1);
-        else
-            close(file_descriptors[1]);
 
+
+        close(file_descriptors[1]);
+
+        // descriptor that previous child wrote to
         if (old_output != 1)
             close(old_output);
 
