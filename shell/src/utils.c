@@ -103,6 +103,9 @@ void handle_pipeline (pipeline * ps) {
 
 int handle_command_in_pipeline (command* com, int * file_descriptors, int has_next) {
 
+    if (com == NULL)
+        return 0;
+
     argseq * args = com->args;
     redirseq * redirs = com->redirs;
 
@@ -219,13 +222,12 @@ char ** get_command_args(argseq * args) {
 }
 
 void handle_redirs(redirseq * redirs) {
-    if (redirs == NULL)
-        return;
-
     redirseq * current = redirs;
     int new_descriptor;
     int flags;
 
+    if (redirs == NULL)
+        return;
 
     do {
         if (IS_RIN(current->r->flags))
