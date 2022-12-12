@@ -39,7 +39,7 @@ int child_status;
 sigset_t signals_set;
 
 //background processes
-int finished_background;
+volatile int finished_background;
 note background_notes[MAX_BACKGROUND_PROCESSES];
 
 // number of bytes read by read function

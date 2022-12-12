@@ -24,9 +24,10 @@ struct stat stdin_info;
 int is_tty;
 
 
-void sigchld_handler(int signum, siginfo_t *info, void *context) {
+void sigchld_handler(int signum) {
     pid_t pid;
     int i;
+
     do {
         pid = waitpid(-1, &child_status, WNOHANG);
         if (pid > 0) {
@@ -93,9 +94,8 @@ int main (int argc, char *argv[]) {
 
 void initialize () {
 
-    // since POSIX.1-2001
-    sigchld_action.sa_sigaction = sigchld_handler;
-    sigchld_action.sa_flags = SA_SIGINFO;
+    sigchld_action.sa_handler = sigchld_handler;
+    sigchld_action.sa_flags = SA_RESTART;
     sigemptyset(&sigchld_action.sa_mask);
     sigaction(SIGCHLD, &sigchld_action, NULL);
 
