@@ -20,9 +20,9 @@
 
 #define EXEC_FAILURE 127
 
-#define BUILTIN_FAILURE -1
+#define BUILTIN_FAILURE 120
 
-#define BUILTIN_SUCCESS 1
+#define BUILTIN_SUCCESS 0
 
 #define WRONG_REDIR -1
 

@@ -46,6 +46,7 @@ void sigchld_handler(int signum) {
             }
         }
     } while(pid > 0);
+
 }
 
 
@@ -89,6 +90,7 @@ int main (int argc, char *argv[]) {
         if (buffer.end_of_command != NULL)
             handle_multi_line();
     }
+
 }
 
 
@@ -141,6 +143,7 @@ void read_prep () {
         buffer.write_to_buffer_ptr = buffer.buf + buffer.length;
 
     buffer.begin_new_command = buffer.buf;
+
 }
 
 
@@ -167,6 +170,7 @@ void length_check () {
         buffer.length = read_value - (buffer.end_of_command+1 - buffer.buf);
         move_buffer();
     }
+
     // current command's '\n' is further than max line length
     // program moves next command to the beginning of buffer
     else if(buffer.end_of_command+1-buffer.buf > MAX_LINE_LENGTH) {

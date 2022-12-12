@@ -64,8 +64,8 @@ void handle_pipeline (pipeline * ps) {
 
     is_background_process = (ps->flags == INBACKGROUND);
 
-    file_descriptors[0] = STDIN_FILENO;
-    file_descriptors[1] = STDOUT_FILENO;
+    file_descriptors[0] = 0;
+    file_descriptors[1] = 1;
 
     commandseq * current = ps->commands;
 
@@ -73,25 +73,32 @@ void handle_pipeline (pipeline * ps) {
     sigprocmask(SIG_UNBLOCK, &signals_set, NULL);
 
     do {
-        if (handle_command_in_pipeline(current->com, file_descriptors, (current->next != ps->commands)))
+        if (handle_command_in_pipeline(current->com, file_descriptors, (current->next != ps->commands))){
+            if (file_descriptors[0] != 0) close(file_descriptors[0]);
+            if (file_descriptors[1] != 1) close(file_descriptors[1]);
+
             return;
+        }
 
         current = current->next;
     } while (current != ps->commands);
 
 
-    close(file_descriptors[0]);
-    close(file_descriptors[1]);
+    if (file_descriptors[0] != 0) close(file_descriptors[0]);
+    if (file_descriptors[1] != 1) close(file_descriptors[1]);
 
 
     sigemptyset(&signals_set);
+    // signals_set = { }
 
     while (unfinished_foreground)
         sigsuspend(&signals_set);
 
     sigaddset(&signals_set, SIGCHLD);
+    // signals_set = {SIGCHLD}
 
     foreground_all = 0;
+
 }
 
 int handle_command_in_pipeline (command* com, int * file_descriptors, int has_next) {
@@ -104,6 +111,7 @@ int handle_command_in_pipeline (command* com, int * file_descriptors, int has_ne
 
     if (*com->args->arg == 0 || *com->args->arg == '#'){
         fprintf(stderr, "%s\n", SYNTAX_ERROR_STR);
+
         return -1;
     }
 
@@ -114,6 +122,7 @@ int handle_command_in_pipeline (command* com, int * file_descriptors, int has_ne
     if (builtin_fun != NULL) {
         if (builtin_fun(args_array)) {
             fprintf(stderr, BUILTIN_ERROR_STR, args_array[0]);
+
             return BUILTIN_FAILURE;
         }
 
@@ -146,15 +155,15 @@ int handle_command_in_pipeline (command* com, int * file_descriptors, int has_ne
 
         dup2(input, 0);
 
-        if (old_output != 1)
-            close(old_output);
-
         close(file_descriptors[0]);
 
         if (has_next)
             dup2(file_descriptors[1], 1);
         else
             close(file_descriptors[1]);
+
+        if (old_output != 1)
+            close(old_output);
 
         handle_redirs(redirs);
 
@@ -200,7 +209,6 @@ char ** get_command_args(argseq * args) {
     args_array[i] = NULL;
 
     return args_array;
-
 }
 
 void handle_redirs(redirseq * redirs) {

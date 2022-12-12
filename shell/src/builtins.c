@@ -36,6 +36,7 @@ fptr is_builtin(char * command) {
 
         current_builtin++;
     }
+
     return NULL;
 }
 
@@ -61,8 +62,8 @@ int echo (char * argv[]) {
 
     printf("\n");
     fflush(stdout);
-    return 0;
 
+    return 0;
 }
 
 int change_directory (char  * argv[]) {
@@ -149,5 +150,6 @@ int list_directory (char* argv[]) {
 
 int undefined (char * argv[]) {
 	fprintf(stderr, "Command %s undefined.\n", argv[0]);
+
 	return BUILTIN_ERROR;
 }
