@@ -112,14 +112,7 @@ int handle_command_in_pipeline (command* com, int * file_descriptors, int has_ne
     int input;
     int old_output;
 
-    if (*com->args->arg == 0 || *com->args->arg == '#'){
-        fprintf(stderr, "%s\n", SYNTAX_ERROR_STR);
-
-        return -1;
-    }
-
     char ** args_array = get_command_args(args);
-
     fptr builtin_fun = is_builtin(args_array[0]);
 
     if (builtin_fun != NULL) {
