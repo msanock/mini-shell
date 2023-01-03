@@ -1,0 +1,25 @@
+test -d obj || mkdir obj
+test -d bin || mkdir bin
+cc -Iinclude -c src/utils.c -o obj/utils.o
+cc -Iinclude -c src/mshell.c -o obj/mshell.o
+cc -Iinclude -c src/builtins.c -o obj/builtins.o
+cc -Iinclude obj/utils.o obj/mshell.o obj/builtins.o obj/siparse.a -o bin/mshell 
+/usr/bin/ld: obj/mshell.o:(.bss+0x0): multiple definition of `ln'; obj/utils.o:(.bss+0x0): first defined here
+/usr/bin/ld: obj/mshell.o:(.bss+0x20): multiple definition of `buffer'; obj/utils.o:(.bss+0x20): first defined here
+/usr/bin/ld: obj/mshell.o:(.bss+0x1040): multiple definition of `is_background_process'; obj/utils.o:(.bss+0x1040): first defined here
+/usr/bin/ld: obj/mshell.o:(.bss+0x1044): multiple definition of `child_pid'; obj/utils.o:(.bss+0x1044): first defined here
+/usr/bin/ld: obj/mshell.o:(.bss+0x1048): multiple definition of `foreground_all'; obj/utils.o:(.bss+0x1048): first defined here
+/usr/bin/ld: obj/mshell.o:(.bss+0x1060): multiple definition of `foreground'; obj/utils.o:(.bss+0x1060): first defined here
+/usr/bin/ld: obj/mshell.o:(.bss+0x11f0): multiple definition of `unfinished_foreground'; obj/utils.o:(.bss+0x11f0): first defined here
+/usr/bin/ld: obj/mshell.o:(.bss+0x11f4): multiple definition of `child_status'; obj/utils.o:(.bss+0x11f4): first defined here
+/usr/bin/ld: obj/mshell.o:(.bss+0x1200): multiple definition of `signals_set'; obj/utils.o:(.bss+0x1200): first defined here
+/usr/bin/ld: obj/mshell.o:(.bss+0x1280): multiple definition of `finished_background'; obj/utils.o:(.bss+0x1280): first defined here
+/usr/bin/ld: obj/mshell.o:(.bss+0x12a0): multiple definition of `background_notes'; obj/utils.o:(.bss+0x12a0): first defined here
+/usr/bin/ld: obj/mshell.o:(.bss+0x15c0): multiple definition of `read_value'; obj/utils.o:(.bss+0x15c0): first defined here
+/usr/bin/ld: obj/mshell.o:(.bss+0x15e0): multiple definition of `sigchld_action'; obj/utils.o:(.bss+0x15e0): first defined here
+/usr/bin/ld: obj/mshell.o:(.bss+0x1680): multiple definition of `sigint_action'; obj/utils.o:(.bss+0x1680): first defined here
+/usr/bin/ld: obj/siparse.a(y.tab.o):(.bss+0x0): multiple definition of `ln'; obj/utils.o:(.bss+0x0): first defined here
+/usr/bin/ld: obj/siparse.a(siparseutils.o):(.bss+0x0): multiple definition of `ln'; obj/utils.o:(.bss+0x0): first defined here
+/usr/bin/ld: obj/siparse.a(lex.yy.o):(.bss+0x28): multiple definition of `ln'; obj/utils.o:(.bss+0x0): first defined here
+collect2: error: ld returned 1 exit status
+make: *** [Makefile:19: bin/mshell] Error 1
