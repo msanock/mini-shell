@@ -101,7 +101,7 @@ int kill_process (char * argv[]) {
 
         signal = strtol(argv[1]+1, &c, 0);
 
-        if(*c != '\0')
+        if(*c != '\0' || errno  == ERANGE)
             return BUILTIN_ERROR;
 
         pid = strtol(argv[2], &c, 0);

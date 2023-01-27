@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 #include <string.h>
 #include <signal.h>
+#include <errno.h>
 
 #include "config.h"
 #include "siparse.h"
@@ -27,6 +28,7 @@ int is_tty;
 void sigchld_handler(int signum) {
     pid_t pid;
     int i;
+    int old_errno = errno;
 
     do {
         pid = waitpid(-1, &child_status, WNOHANG);
@@ -47,6 +49,7 @@ void sigchld_handler(int signum) {
         }
     } while(pid > 0);
 
+    errno = old_errno;
 }
 
 
@@ -57,11 +60,7 @@ int main (int argc, char *argv[]) {
     while (1) {
         // signals_set = {SIGCHLD}
 
-        sigprocmask(SIG_BLOCK, &signals_set, NULL);
-
         read_prep();
-
-        sigprocmask(SIG_UNBLOCK, &signals_set, NULL);
 
         read_value = read(0, buffer.write_to_buffer_ptr, MAX_BUFFER_READ);
         if (read_value == -1) {
