@@ -62,6 +62,8 @@ int main (int argc, char *argv[]) {
 
         read_prep();
 
+        sigprocmask(SIG_UNBLOCK, &signals_set, NULL);
+
         read_value = read(0, buffer.write_to_buffer_ptr, MAX_BUFFER_READ);
         if (read_value == -1) {
             perror("read: ");

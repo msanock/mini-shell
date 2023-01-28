@@ -69,9 +69,6 @@ void handle_pipeline (pipeline * ps) {
 
     commandseq * current = ps->commands;
 
-    // signals_set = {SIGCHLD}
-    sigprocmask(SIG_UNBLOCK, &signals_set, NULL);
-
     do {
         if (handle_command_in_pipeline(current->com, file_descriptors, (current->next != ps->commands))){
             if (file_descriptors[0] != 0) close(file_descriptors[0]);
